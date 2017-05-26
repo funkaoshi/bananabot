@@ -1,0 +1,18 @@
+{
+  "name": "bananabot",
+  "version": "0.0.1",
+  "private": true,
+  "author": "Ramanan Sivaranjan <ramanan@funkaoshi.com>",
+  "description": "Help you split a banana.",
+  "dependencies": {
+    "hubot": "^2.19.0",
+    "hubot-diagnostics": "0.0.1",
+    "hubot-help": "^0.2.0",
+    "hubot-lets-chat": "0.0.7",
+    "hubot-redis-brain": "0.0.3",
+    "hubot-scripts": "^2.17.2"
+  },
+  "engines": {
+    "node": "0.10.x"
+  }
+}
