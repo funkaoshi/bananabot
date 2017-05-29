@@ -4,6 +4,7 @@
 # Commands:
 #   bananabot split a banana - let people know you are interested in sharing a banana.
 #   bananabot me - reply to bananabot's search for banana loving people that aren't that hungry.
+#   bananabot rules - print the robot rules
 #
 # Author:
 #   funkaoshi
@@ -26,3 +27,6 @@ module.exports = (robot) ->
 
   robot.respond /me/i, (res) ->
     split_a_banana res
+
+  robot.respond /rules/i, (res) ->
+    res.send "Rule 1: Don't leave half of a banana."
