@@ -25,7 +25,7 @@ module.exports = (robot) ->
   robot.hear /(split a banana)|(share a banana)/i, (res) ->
     split_a_banana res
 
-  robot.respond /me/i, (res) ->
+  robot.respond /(me)|(yes)|(sure)|(ok)|(i do)/i, (res) ->
     split_a_banana res
 
   robot.respond /rules/i, (res) ->
