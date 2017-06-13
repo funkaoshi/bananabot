@@ -38,6 +38,7 @@ module.exports = (robot) ->
   robot.hear /(add)(.*)(test)/ ->
     user = res.message.user.name
     res.send "Nice job \@{user} on that new test."
-    
+
   robot.respond /rules/i, (res) ->
-    res.send "Rule 1: Don't leave half of a banana."
+    version = 0.4
+    res.send "Rule 1: Don't leave half of a banana. (v{version})"
