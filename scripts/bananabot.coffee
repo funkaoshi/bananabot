@@ -28,5 +28,16 @@ module.exports = (robot) ->
   robot.respond /(me)|(yes)|(sure)|(ok)|(i do)/i, (res) ->
     split_a_banana res
 
+  robot.hear /(banana bandit struck)|(banana bandit has struck)/ ->
+    splitter = robot.brain.get('splitter')
+    if splitter
+      res.send "Hey \@#{splitter} there is half a banana in the kitchen."
+    else
+      res.send "There is half a banana in the kitchen!"
+
+  robot.hear /(add)(.*)(test)/ ->
+    user = res.message.user.name
+    res.send "Nice job \@{user} on that new test."
+    
   robot.respond /rules/i, (res) ->
     res.send "Rule 1: Don't leave half of a banana."
