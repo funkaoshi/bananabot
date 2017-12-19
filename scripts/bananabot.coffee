@@ -27,18 +27,16 @@ module.exports = (robot) ->
   # Create an empty leaderboard
   init_banana_leaderboard = () ->
     console.log "Creating a new leaderboard."
-
-    leaderboard = {}
-    for id, user of robot.brain.data.users
-      leaderboard[id] = 0
-    robot.brain.set("leaderboard", leaderboard)
-    return leaderboard
+    return {}
 
 
   # Assign the given user N bananas
   update_leaderboard = (user_id, bananas) ->
     leaderboard = robot.brain.get("leaderboard") || init_banana_leaderboard()
-    leaderboard[user_id] += bananas
+    if 'user_id' of leaderboard
+      leaderboard[user_id] += bananas
+    else
+      leaderboard[user_id] = bananas
 
 
   # When you hear a banana message update the banana leaderboard
@@ -71,6 +69,10 @@ module.exports = (robot) ->
       response += "#{robot.brain.userForId(user_id).name}: #{leaderboard[user_id]}\n"
 
     msg.send response
+
+  robot.respond /reset/i, (msg) ->
+    robot.brain.set("leaderboard", {})
+    msg.send "Done"
 
 
   # When the bot hears discussion of banana sharing / splitting, it will
