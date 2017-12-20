@@ -212,4 +212,5 @@ module.exports = (robot) ->
 
   # Reset the banana counters at the start of each day
   schedule.scheduleJob '* * * 0 0 0', init_recognition_bananas_counters()
+  schedule.scheduleJob '* * * 0 0 0', fetch_valid_users()
 
