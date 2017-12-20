@@ -77,14 +77,16 @@ module.exports = (robot) ->
 
     mentioned_user_names = message.match(/@(\w+)/g)
     if not mentioned_user_names.length
-      return []
+      return {}
 
-    recipients = []
+    recipients = {}
     for recipient in mentioned_user_names
+      console.log "Looking for #{recipient}"
       recipient = recipient.slice(1)
       recipient_user = user_for_name recipient
-      if recipient_user and recipient != username
-        recipients.push recipient_user
+      if recipient_user and recipient != username and recipient != robot.name
+        console.log "And we found #{recipient}!"
+        recipients[recipient] = recipient_user.id
 
     return recipients
 
@@ -104,20 +106,26 @@ module.exports = (robot) ->
 
 
   # Fetch and update the users remaining bananas to give out as recognition.
-  remaining_bananas = (user_id) ->
-    recognition_bananas = robot.brain.get("recognition_bananas") || init_recognition_bananas_counters()
+  get_bananas_for_users = (user_id, bananas_desired) ->
+    console.log "Find bananas for #{user_id}"
 
     user = user_for_id user_id
     if user == undefined
       return
 
-    console.log "Looking up remaining bananas for #{user.name}"
+    recognition_bananas = robot.brain.get("recognition_bananas") || init_recognition_bananas_counters()
 
-    # this whole construct seems dumb, can we write this nicer?
     if user_id of recognition_bananas
-      recognition_bananas[user_id] = recognition_bananas[user_id] - 1
+      remaining_bananas = recognition_bananas[user_id]
     else
-      recognition_bananas[user_id] = INITIAL_BANANAS_PER_USER - 1
+      remaining_bananas = INITIAL_BANANAS_PER_USER
+
+    console.log "#{user.username} has #{remaining_bananas} in their cache of bananas and want #{bananas_desired}."
+
+    if remaining_bananas - bananas_desired < 0
+      return -1
+
+    recognition_bananas[user_id] = remaining_bananas - bananas_desired
 
     return recognition_bananas[user_id]
 
@@ -136,24 +144,26 @@ module.exports = (robot) ->
     console.log "It's Banana Time!"
 
     user = msg.message.user
-    bananas = remaining_bananas user.id
-    if bananas < 0
-      msg.send "Sorry, you've given away all your bananas!"
-      return
 
     if not valid_recognition msg.message.text
       msg.send "Hey @#{user.name}, put a bit more effort into that recognition."
       return
 
     recipients = valid_recipients user.name, msg.message.text
-    if not recipients.length
+    number_of_recipients = Object.keys(recipients).length
+    if number_of_recipients == 0
       return
 
-    for recipient in recipients
-      console.log "Giving a banana to #{recipient.username}."
-      update_leaderboard recipient.id, 1
+    bananas = get_bananas_for_users(user.id, number_of_recipients)
+    if bananas < 0
+      msg.send "Sorry, you don't have enough bananas to give away!"
+      return
 
-    recipient_names = ["@#{recipient.username}" for recipient in recipients].join(', ')
+    for recipient, recipient_id of recipients
+      console.log "Giving a banana to #{recipient}."
+      update_leaderboard recipient_id, 1
+
+    recipient_names = ["@#{recipient}" for recipient, recipient_id of recipients].join(', ')
 
     msg.send "Great job #{recipient_names}. #{user.name} you have #{bananas} left to give!"
 
