@@ -16,17 +16,58 @@ module.exports = (robot) ->
 
   # How many bananas does a user have to give away each day.
   INITIAL_BANANAS_PER_USER = 5
+  BASE_URL = process.env.HUBOT_LCB_PROTOCOL + "://" +
+             process.env.HUBOT_LCB_HOSTNAME + ":" +
+             process.env.HUBOT_LCB_PORT
 
 
-  # Pull the valid recipients out of a message
-  valid_recipients = (message) ->
+  # Retrieve the user list from the server and store it locally
+  fetch_valid_users = () ->
+    robot.http(BASE_URL + "/users")
+      .header('Authorization', 'Bearer ' + process.env.HUBOT_LCB_TOKEN)
+      .get() (err, res, body) ->
+        # todo: some error checking
+
+        valid_user_ids = {}
+        valid_usernames = {}
+        for user in JSON.parse(body)
+          console.log("#{user.id} -> #{user.username}")
+          valid_user_ids[user.id] = user
+          valid_usernames[user.username] = user
+
+        valid_users = {
+          'usernames': valid_usernames,
+          'ids': valid_user_ids
+        }
+        robot.brain.set("valid_users", valid_users)
+
+        return valid_users
+
+
+  # For a given user name look up the user
+  user_for_name = (username) ->
+    valid_users = robot.brain.get("valid_users") || fetch_valid_users()
+    return valid_users['usernames'][username]
+
+
+  # For a given user ID look up the user
+  user_for_id = (user_id) ->
+    valid_users = robot.brain.get("valid_users") || fetch_valid_users()
+    return valid_users['ids'][user_id]
+
+
+  # Pull the valid recipients out of a message. The user who is giving away
+  # bananas can't give a banana to themselves
+  valid_recipients = (username, message) ->
+    console.log("#{username} is giving bananas to people mentioned in #{message}")
+
     mentioned_user_names = message.match(/@(\w+)/g)
 
     recipients = []
     for recipient in mentioned_user_names
       recipient = recipient.slice(1)
-      recipient_user = robot.brain.userForName recipient
-      if recipient_user
+      recipient_user = user_for_name recipient
+      if recipient_user and recipient != username
         recipients.push recipient_user
 
     return recipients
@@ -50,7 +91,10 @@ module.exports = (robot) ->
   remaining_bananas = (user_id) ->
     recognition_bananas = robot.brain.get("recognition_bananas") || init_recognition_bananas_counters()
 
-    user = robot.brain.userForId user_id
+    user = user_for_id user_id
+    if user == undefined
+      return
+
     console.log "Looking up remaining bananas for #{user.name}"
 
     # this whole construct seems dumb, can we write this nicer?
@@ -81,14 +125,15 @@ module.exports = (robot) ->
       msg.send "Sorry, you've given away all your bananas!"
       return
 
-    recipients = valid_recipients msg.message.text
-    for recipient in recipients
-      console.log "Giving a banana to #{recipient.name}."
-      update_leaderboard recipient.id, 1
+    recipients = valid_recipients user.name, msg.message.text
+    if recipients
+      for recipient in recipients
+        console.log "Giving a banana to #{recipient.username}."
+        update_leaderboard recipient.id, 1
 
-    recipient_names = ["@#{recipient.name}" for recipient in recipients].join(', ')
+      recipient_names = ["@#{recipient.username}" for recipient in recipients].join(', ')
 
-    msg.send "Great job #{recipient_names}. #{user.name} you have #{bananas} left to give!"
+      msg.send "Great job #{recipient_names}. #{user.name} you have #{bananas} left to give!"
 
 
   # Returns the list of users and their recognition stats
@@ -101,15 +146,30 @@ module.exports = (robot) ->
     keys = keys.filter (a) -> leaderboard[a] > 0
     response = "Who has received the most bananas?!\n"
     for user_id in keys
-      response += "#{robot.brain.userForId(user_id).name}: #{leaderboard[user_id]}\n"
+      response += "#{user_for_id(user_id).username}: #{leaderboard[user_id]}\n"
 
     msg.send response
 
 
-  # reset the recognition state (for debuging)
-  # robot.respond /reset leaderboard/i, (msg) ->
-  #  robot.brain.set("leaderboard", {})
-  #  msg.send "Done"
+  # reset the recognition state (for debugging)
+  robot.respond /reset/i, (msg) ->
+    if msg.message.user.name != 'ramanan'
+      return
+
+    init_banana_leaderboard()
+    init_recognition_bananas_counters()
+    fetch_valid_users()
+    msg.send "Done"
+
+
+  # users in the system (for debugging)
+  robot.respond /users/i, (msg) ->
+    valid_users = robot.brain.get("valid_users") || fetch_valid_users()
+    response = ""
+    for user_id, user of valid_users['ids']
+      response += "#{user.id} -> #{user.username}\n"
+    msg.send response
+
 
 
   # When the bot hears discussion of banana sharing / splitting, it will
