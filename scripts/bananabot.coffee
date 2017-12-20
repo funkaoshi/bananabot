@@ -56,12 +56,28 @@ module.exports = (robot) ->
     return valid_users['ids'][user_id]
 
 
+  # Valid recognition messages shouldn't just be a list of names and a banana.
+  valid_recognition = (message) ->
+    console.log "Validate the recognition."
+    strip_mentions = message.replace(/@(\w+)/ig, '')
+    strip_bananas = strip_mentions.replace(/🍌|(:banana:)/ig, '')
+    strip_whitespace = strip_bananas.replace(/\s/, '').trim()
+
+    console.log "Strip mentions: '#{strip_mentions}'"
+    console.log "Strip bananas: '#{strip_bananas}'"
+    console.log "Strip whitespace: '#{strip_whitespace}'"
+
+    return !! strip_whitespace
+
+
   # Pull the valid recipients out of a message. The user who is giving away
   # bananas can't give a banana to themselves
   valid_recipients = (username, message) ->
     console.log("#{username} is giving bananas to people mentioned in #{message}")
 
     mentioned_user_names = message.match(/@(\w+)/g)
+    if not mentioned_user_names.length
+      return []
 
     recipients = []
     for recipient in mentioned_user_names
@@ -125,15 +141,21 @@ module.exports = (robot) ->
       msg.send "Sorry, you've given away all your bananas!"
       return
 
+    if not valid_recognition msg.message.text
+      msg.send "Hey @#{user.name}, put a bit more effort into that recognition."
+      return
+
     recipients = valid_recipients user.name, msg.message.text
-    if recipients
-      for recipient in recipients
-        console.log "Giving a banana to #{recipient.username}."
-        update_leaderboard recipient.id, 1
+    if not recipients.length
+      return
 
-      recipient_names = ["@#{recipient.username}" for recipient in recipients].join(', ')
+    for recipient in recipients
+      console.log "Giving a banana to #{recipient.username}."
+      update_leaderboard recipient.id, 1
 
-      msg.send "Great job #{recipient_names}. #{user.name} you have #{bananas} left to give!"
+    recipient_names = ["@#{recipient.username}" for recipient in recipients].join(', ')
+
+    msg.send "Great job #{recipient_names}. #{user.name} you have #{bananas} left to give!"
 
 
   # Returns the list of users and their recognition stats
@@ -153,7 +175,7 @@ module.exports = (robot) ->
 
   # reset the recognition state (for debugging)
   robot.respond /reset/i, (msg) ->
-    if msg.message.user.name != 'ramanan'
+    if msg.message.user.name != process.env.BANANA_BOT_SUPERUSER
       return
 
     init_banana_leaderboard()
@@ -169,7 +191,6 @@ module.exports = (robot) ->
     for user_id, user of valid_users['ids']
       response += "#{user.id} -> #{user.username}\n"
     msg.send response
-
 
 
   # When the bot hears discussion of banana sharing / splitting, it will
