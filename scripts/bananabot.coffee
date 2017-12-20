@@ -8,8 +8,15 @@
 #
 # Author:
 #   funkaoshi
+#
+
+schedule = require 'node-schedule'
 
 module.exports = (robot) ->
+
+  # How many bananas does a user have to give away each day.
+  INITIAL_BANANAS_PER_USER = 5
+
 
   # Pull the valid recipients out of a message
   valid_recipients = (message) ->
@@ -24,16 +31,41 @@ module.exports = (robot) ->
 
     return recipients
 
+
   # Create an empty leaderboard
   init_banana_leaderboard = () ->
     console.log "Creating a new leaderboard."
+    robot.brain.set("leaderboard", {})
     return {}
+
+
+  # Reset the counters for tracking the bananas users have to hand out.
+  init_recognition_bananas_counters = () ->
+    console.log "Init the bananas per user tracker."
+    robot.brain.set("recognition_bananas", {})
+    return {}
+
+
+  # Fetch and update the users remaining bananas to give out as recognition.
+  remaining_bananas = (user_id) ->
+    recognition_bananas = robot.brain.get("recognition_bananas") || init_recognition_bananas_counters()
+
+    user = robot.brain.userForId user_id
+    console.log "Looking up remaining bananas for #{user.name}"
+
+    # this whole construct seems dumb, can we write this nicer?
+    if user_id of recognition_bananas
+      recognition_bananas[user_id] = recognition_bananas[user_id] - 1
+    else
+      recognition_bananas[user_id] = INITIAL_BANANAS_PER_USER - 1
+
+    return recognition_bananas[user_id]
 
 
   # Assign the given user N bananas
   update_leaderboard = (user_id, bananas) ->
     leaderboard = robot.brain.get("leaderboard") || init_banana_leaderboard()
-    if 'user_id' of leaderboard
+    if user_id of leaderboard
       leaderboard[user_id] += bananas
     else
       leaderboard[user_id] = bananas
@@ -44,8 +76,10 @@ module.exports = (robot) ->
     console.log "It's Banana Time!"
 
     user = msg.message.user
-
-    console.log "#{user.name} (#{user.id}) has X bananas left to give"
+    bananas = remaining_bananas user.id
+    if bananas < 0
+      msg.send "Sorry, you've given away all your bananas!"
+      return
 
     recipients = valid_recipients msg.message.text
     for recipient in recipients
@@ -54,9 +88,10 @@ module.exports = (robot) ->
 
     recipient_names = ["@#{recipient.name}" for recipient in recipients].join(', ')
 
-    msg.send "Great job #{recipient_names}"
+    msg.send "Great job #{recipient_names}. #{user.name} you have #{bananas} left to give!"
 
-  # Returns the list of users
+
+  # Returns the list of users and their recognition stats
   robot.respond /leaderboard/i, (msg) ->
     console.log "These people got some love from their coworkers."
 
@@ -64,15 +99,17 @@ module.exports = (robot) ->
 
     keys = Object.keys(leaderboard).sort (a, b) -> leaderboard[b] - leaderboard[a]
     keys = keys.filter (a) -> leaderboard[a] > 0
-    response = ""
+    response = "Who has received the most bananas?!\n"
     for user_id in keys
       response += "#{robot.brain.userForId(user_id).name}: #{leaderboard[user_id]}\n"
 
     msg.send response
 
-  robot.respond /reset/i, (msg) ->
-    robot.brain.set("leaderboard", {})
-    msg.send "Done"
+
+  # reset the recognition state (for debuging)
+  # robot.respond /reset leaderboard/i, (msg) ->
+  #  robot.brain.set("leaderboard", {})
+  #  msg.send "Done"
 
 
   # When the bot hears discussion of banana sharing / splitting, it will
@@ -111,3 +148,8 @@ module.exports = (robot) ->
   robot.respond /rules/i, (res) ->
     version = 0.5
     res.send "Rule 1: Don't leave half a banana in the kitchen. (v{version})"
+
+
+  # Reset the banana counters at the start of each day
+  schedule.scheduleJob '* * * 0 0 0', init_recognition_bananas_counters()
+
