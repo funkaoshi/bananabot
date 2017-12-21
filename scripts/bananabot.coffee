@@ -16,9 +16,17 @@ module.exports = (robot) ->
 
   # How many bananas does a user have to give away each day.
   INITIAL_BANANAS_PER_USER = 5
+
+  # The URL of the server banana bot is connecting to
   BASE_URL = process.env.HUBOT_LCB_PROTOCOL + "://" +
              process.env.HUBOT_LCB_HOSTNAME + ":" +
              process.env.HUBOT_LCB_PORT
+
+  try
+    # These users can not give or receive recognition
+    BLACKLIST = process.env.BANANA_BOT_BLACKLIST.split(",")
+  catch
+    BLACKLIST = []
 
 
   # Retrieve the user list from the server and store it locally
@@ -84,7 +92,10 @@ module.exports = (robot) ->
       console.log "Looking for #{recipient}"
       recipient = recipient.slice(1)
       recipient_user = user_for_name recipient
-      if recipient_user and recipient != username and recipient != robot.name
+      if (recipient_user and
+          recipient != username and
+          recipient != robot.name and
+          recipient not in BLACKLIST)
         console.log "And we found #{recipient}!"
         recipients[recipient] = recipient_user.id
 
@@ -144,6 +155,9 @@ module.exports = (robot) ->
     console.log "It's Banana Time!"
 
     user = msg.message.user
+    if user.name in BLACKLIST
+      msg.send "Sorry, you aren't allowed to give recognition."
+      return
 
     if not valid_recognition msg.message.text
       msg.send "Hey @#{user.name}, put a bit more effort into that recognition."
