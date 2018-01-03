@@ -5,6 +5,8 @@
 #   bananabot split a banana - let people know you are interested in sharing a banana.
 #   bananabot me - reply to bananabot's search for banana loving people that aren't that hungry.
 #   bananabot rules - print the robot rules
+#   bananabot balance - how many bananas do you have left to give out
+#   message with a :banana: in it along with a @username - give @username a banana
 #
 # Author:
 #   funkaoshi
@@ -197,6 +199,19 @@ module.exports = (robot) ->
     msg.send response
 
 
+  # How many bananas does a user have to give out?
+  robot.respond /balance/i, (msg) ->
+    console.log "How many bananas do you have left?"
+
+    user = msg.message.user
+    bananas = get_bananas_for_users(user.id, 0)
+
+    response = "Hey @#{user.name} you have #{bananas} bananas left."
+
+    console.log response
+    msg.send response
+
+
   # reset the recognition state (for debugging)
   robot.respond /reset/i, (msg) ->
     if msg.message.user.name != process.env.BANANA_BOT_SUPERUSER
@@ -235,24 +250,27 @@ module.exports = (robot) ->
 
   # When banabot hears that there is half a banana in the kitchen it'll let
   # let the team know.
-  robot.hear /banana bandit(.*)struck/i, (res) ->
+  robot.hear /banana bandit(.*)struck/i, (msg) ->
     splitter = robot.brain.get('splitter')
     if splitter
-      res.send "Hey \@#{splitter} there is half a banana in the kitchen."
+      msg.send "Hey \@#{splitter} there is half a banana in the kitchen."
     else
-      res.send "There is half a banana in the kitchen!"
+      msg.send "There is half a banana in the kitchen!"
 
 
   # Positive Feedback!
-  robot.hear /(add)(.*)(test)/i, (res) ->
+  robot.hear /(add)(.*)(test)/i, (msg) ->
     user = res.message.user.name
-    res.send "Nice job \@#{user} on that new test."
+    msg.send "Nice job \@#{user} on that new test."
+
+  robot.hear /(bananatime)/i, (msg) ->
+    msg.send "https://media.giphy.com/media/IB9foBA4PVkKA/giphy.gif"
 
 
   # Return the version of the bot.
-  robot.respond /rules/i, (res) ->
-    version = 0.5
-    res.send "Rule 1: Don't leave half a banana in the kitchen. (v{version})"
+  robot.respond /rules/i, (msg) ->
+    version = 0.6
+    msg.send "Rule 1: Don't leave half a banana in the kitchen. (v{version})"
 
 
   # Reset the banana counters at the start of each day
