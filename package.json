@@ -10,6 +10,7 @@
     "hubot-diagnostics": "0.0.1",
     "hubot-help": "^0.2.0",
     "hubot-lets-chat": "0.0.7",
+    "hubot-slack": "",
     "hubot-redis-brain": "0.0.3",
     "hubot-scripts": "^2.17.2",
     "node-schedule": ""

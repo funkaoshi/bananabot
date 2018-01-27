@@ -19,51 +19,37 @@ module.exports = (robot) ->
   # How many bananas does a user have to give away each day.
   INITIAL_BANANAS_PER_USER = 5
 
-  # The URL of the server banana bot is connecting to
-  BASE_URL = process.env.HUBOT_LCB_PROTOCOL + "://" +
-             process.env.HUBOT_LCB_HOSTNAME + ":" +
-             process.env.HUBOT_LCB_PORT
-
   try
     # These users can not give or receive recognition
     BLACKLIST = process.env.BANANA_BOT_BLACKLIST.split(",")
   catch
     BLACKLIST = []
 
+  # Apparently slack doesn't populate the redis brain anymore, so we fill it
+  # up ourselves thanks to this code I jacked from Github.
+  fetch_users_from_slack = () ->
+    console.log "Let's find our peoples."
 
-  # Retrieve the user list from the server and store it locally
-  fetch_valid_users = () ->
-    robot.http(BASE_URL + "/users")
-      .header('Authorization', 'Bearer ' + process.env.HUBOT_LCB_TOKEN)
-      .get() (err, res, body) ->
-        # todo: some error checking
+    return unless robot.adapterName == 'slack'
 
-        valid_user_ids = {}
-        valid_usernames = {}
-        for user in JSON.parse(body)
-          console.log("#{user.id} -> #{user.username}")
-          valid_user_ids[user.id] = user
-          valid_usernames[user.username] = user
+    robot.adapter.client.web.users.list (err, info) ->
+      if err
+        robot.logger.debug 'Cannot retrieve list of users'
+        return
 
-        valid_users = {
-          'usernames': valid_usernames,
-          'ids': valid_user_ids
-        }
-        robot.brain.set("valid_users", valid_users)
+      for member in info.members
+        console.log "found #{member.name}"
+        continue unless member?.id?
+        newUser =
+          id: member.id
+          name: member.name
+          realName: member.real_name
+          slack: member
+        delete robot.brain.data.users[member.id]
+        robot.brain.userForId member.id, newUser
 
-        return valid_users
-
-
-  # For a given user name look up the user
-  user_for_name = (username) ->
-    valid_users = robot.brain.get("valid_users") || fetch_valid_users()
-    return valid_users['usernames'][username]
-
-
-  # For a given user ID look up the user
-  user_for_id = (user_id) ->
-    valid_users = robot.brain.get("valid_users") || fetch_valid_users()
-    return valid_users['ids'][user_id]
+  # When the robot loads fetch the users in the system
+  robot.brain.on 'loaded', (data) -> fetch_users_from_slack()
 
 
   # Valid recognition messages shouldn't just be a list of names and a banana.
@@ -82,8 +68,8 @@ module.exports = (robot) ->
 
   # Pull the valid recipients out of a message. The user who is giving away
   # bananas can't give a banana to themselves
-  valid_recipients = (username, message) ->
-    console.log("#{username} is giving bananas to people mentioned in #{message}")
+  valid_recipients = (user, message) ->
+    console.log("#{user.name} is giving bananas to people mentioned in #{message}")
 
     mentioned_user_names = message.match(/@(\w+)/g)
     if not mentioned_user_names.length
@@ -92,12 +78,12 @@ module.exports = (robot) ->
     recipients = {}
     for recipient in mentioned_user_names
       console.log "Looking for #{recipient}"
-      recipient = recipient.slice(1)
-      recipient_user = user_for_name recipient
+      recipient_username = recipient.slice(1)
+      recipient_user = robot.brain.userForName recipient_username
       if (recipient_user and
-          recipient != username and
-          recipient != robot.name and
-          recipient not in BLACKLIST)
+          recipient_user.id != user.id and
+          recipient_username != robot.name and
+          recipient_username not in BLACKLIST)
         console.log "And we found #{recipient}!"
         recipients[recipient] = recipient_user.id
 
@@ -122,7 +108,7 @@ module.exports = (robot) ->
   get_bananas_for_users = (user_id, bananas_desired) ->
     console.log "Find bananas for #{user_id}"
 
-    user = user_for_id user_id
+    user = robot.brain.userForId user_id
     if user == undefined
       return
 
@@ -133,7 +119,7 @@ module.exports = (robot) ->
     else
       remaining_bananas = INITIAL_BANANAS_PER_USER
 
-    console.log "#{user.username} has #{remaining_bananas} in their cache of bananas and want #{bananas_desired}."
+    console.log "#{user.name} has #{remaining_bananas} in their cache of bananas and want #{bananas_desired}."
 
     if remaining_bananas - bananas_desired < 0
       return -1
@@ -165,7 +151,7 @@ module.exports = (robot) ->
       msg.send "Hey @#{user.name}, put a bit more effort into that recognition."
       return
 
-    recipients = valid_recipients user.name, msg.message.text
+    recipients = valid_recipients user, msg.message.text
     number_of_recipients = Object.keys(recipients).length
     if number_of_recipients == 0
       return
@@ -194,7 +180,7 @@ module.exports = (robot) ->
     keys = keys.filter (a) -> leaderboard[a] > 0
     response = "Who has received the most bananas?!\n"
     for user_id in keys
-      response += "#{user_for_id(user_id).username}: #{leaderboard[user_id]}\n"
+      response += "#{robot.brain.userForId(user_id).name}: #{leaderboard[user_id]}\n"
 
     msg.send response
 
@@ -214,21 +200,23 @@ module.exports = (robot) ->
 
   # reset the recognition state (for debugging)
   robot.respond /reset/i, (msg) ->
-    if msg.message.user.name != process.env.BANANA_BOT_SUPERUSER
+    if msg.message.user.id != process.env.BANANA_BOT_SUPERUSER_ID
       return
 
-    init_banana_leaderboard()
+    fetch_users_from_slack()
     init_recognition_bananas_counters()
-    fetch_valid_users()
+
+    if process.env.BANANA_BOT_RESET_LEADERBOARD_ON_RESET
+      init_banana_leaderboard()
+
     msg.send "Done"
 
 
   # users in the system (for debugging)
   robot.respond /users/i, (msg) ->
-    valid_users = robot.brain.get("valid_users") || fetch_valid_users()
-    response = ""
-    for user_id, user of valid_users['ids']
-      response += "#{user.id} -> #{user.username}\n"
+    fetch_users_from_slack()
+    for user_id, user of robot.brain.users
+      response += "#{user.id} -> #{user.name}\n"
     msg.send response
 
 
@@ -260,7 +248,7 @@ module.exports = (robot) ->
 
   # Positive Feedback!
   robot.hear /(add)(.*)(test)/i, (msg) ->
-    user = res.message.user.name
+    user = msg.message.user.name
     msg.send "Nice job \@#{user} on that new test."
 
   robot.hear /(bananatime)/i, (msg) ->
@@ -269,13 +257,13 @@ module.exports = (robot) ->
 
   # Return the version of the bot.
   robot.respond /rules/i, (msg) ->
-    version = 0.6
-    msg.send "Rule 1: Don't leave half a banana in the kitchen. (v{version})"
+    version = 0.7
+    msg.send "Rule 1: Don't leave half a banana in the kitchen. (v#{version})"
 
 
   # Reset the banana counters at the start of each day
   schedule.scheduleJob '0 0 0 * * *', init_recognition_bananas_counters()
-  schedule.scheduleJob '0 0 0 * * *', fetch_valid_users()
+  schedule.scheduleJob '0 0 0 * * *', fetch_users_from_slack()
   #                     | | | | | |
   #                     | | | | | +-- day of week (0 - 7) (0 or 7 is Sun)
   #                     | | | | +---- month (1 - 12)
