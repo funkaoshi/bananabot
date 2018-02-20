@@ -72,7 +72,7 @@ module.exports = (robot) ->
     console.log("#{user.name} is giving bananas to people mentioned in #{message}")
 
     mentioned_user_names = message.match(/@(\w+)/g)
-    if not mentioned_user_names.length
+    if !mentioned_user_names?
       return {}
 
     recipients = {}
@@ -262,8 +262,8 @@ module.exports = (robot) ->
 
 
   # Reset the banana counters at the start of each day
-  schedule.scheduleJob '0 0 0 * * *', init_recognition_bananas_counters()
-  schedule.scheduleJob '0 0 0 * * *', fetch_users_from_slack()
+  schedule.scheduleJob '0 0 0 * * *', init_recognition_bananas_counters
+  schedule.scheduleJob '0 0 0 * * *', fetch_users_from_slack
   #                     | | | | | |
   #                     | | | | | +-- day of week (0 - 7) (0 or 7 is Sun)
   #                     | | | | +---- month (1 - 12)
