@@ -148,7 +148,7 @@ module.exports = (robot) ->
       return
 
     if not valid_recognition msg.message.text
-      msg.send "Hey @#{user.name}, put a bit more effort into that recognition."
+      msg.send "Hey <@#{user.id}>, put a bit more effort into that recognition."
       return
 
     recipients = valid_recipients user, msg.message.text
@@ -165,9 +165,9 @@ module.exports = (robot) ->
       console.log "Giving a banana to #{recipient}."
       update_leaderboard recipient_id, 1
 
-    recipient_names = ["@#{recipient}" for recipient, recipient_id of recipients].join(', ')
+    recipient_names = ["<@#{recipient_id}>" for recipient, recipient_id of recipients].join(', ')
 
-    msg.send "Great job #{recipient_names}. #{user.name} you have #{bananas} left to give!"
+    msg.send "Great job #{recipient_names}. <@#{user.id}> you have #{bananas} left to give!"
 
 
   # Returns the list of users and their recognition stats
@@ -192,7 +192,7 @@ module.exports = (robot) ->
     user = msg.message.user
     bananas = get_bananas_for_users(user.id, 0)
 
-    response = "Hey @#{user.name} you have #{bananas} bananas left."
+    response = "Hey <@#{user.id}> you have #{bananas} bananas left."
 
     console.log response
     msg.send response
@@ -223,14 +223,14 @@ module.exports = (robot) ->
   # When the bot hears discussion of banana sharing / splitting, it will
   # help find a partner to share with.
   split_a_banana = (res) ->
-    user = res.message.user.name
+    user = res.message.user.id
     splitter = robot.brain.get('splitter')
 
     if splitter and user != splitter
-      res.send "Hey \@#{user} and \@#{splitter} go share a banana!"
+      res.send "Hey <@#{user}> and <@#{splitter}> go share a banana!"
       splitter = robot.brain.remove('splitter')
     else
-      res.send "@all anyone want to split a banana with #{user}?"
+      res.send "@all anyone want to split a banana with <@#{user}>?"
       robot.brain.set('splitter', user)
 
   robot.hear /(split a banana)|(share a banana)/i, (res) -> split_a_banana res
@@ -241,15 +241,15 @@ module.exports = (robot) ->
   robot.hear /banana bandit(.*)struck/i, (msg) ->
     splitter = robot.brain.get('splitter')
     if splitter
-      msg.send "Hey \@#{splitter} there is half a banana in the kitchen."
+      msg.send "Hey <@#{splitter}> there is half a banana in the kitchen."
     else
       msg.send "There is half a banana in the kitchen!"
 
 
   # Positive Feedback!
   robot.hear /(add)(.*)(test)/i, (msg) ->
-    user = msg.message.user.name
-    msg.send "Nice job \@#{user} on that new test."
+    user = msg.message.user.id
+    msg.send "Nice job <@#{user}> on that new test."
 
   robot.hear /(bananatime)/i, (msg) ->
     msg.send "https://media.giphy.com/media/IB9foBA4PVkKA/giphy.gif"
