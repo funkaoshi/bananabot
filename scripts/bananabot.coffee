@@ -249,8 +249,17 @@ module.exports = (robot) ->
   # Positive Feedback!
   robot.hear /(add)(.*)(test)/i, (msg) ->
     user = msg.message.user.id
-    msg.send "Nice job <@#{user}> on that new test."
+    if user is not 'B94T4HLS1'
+      msg.send "Nice job <@#{user}> on that new test."
 
+  robot.hear /\((.*?)\) (opened)(.*)(add)(.*)(test)/i, (msg) ->
+    user = msg.match[1]
+    msg.send "Nice job @#{user} on that new test."
+
+  robot.hear /\((.*?)\) (opened)(.*)(add)(.*)(test)/i, (msg) ->
+    user = msg.match[1]
+    msg.send "Nice job @#{user} on that new test."
+    
   robot.hear /(bananatime)/i, (msg) ->
     msg.send "https://media.giphy.com/media/IB9foBA4PVkKA/giphy.gif"
 
