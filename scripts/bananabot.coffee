@@ -255,10 +255,6 @@ module.exports = (robot) ->
   robot.hear /\((.*?)\) (opened)(.*)(add)(.*)(test)/i, (msg) ->
     user = msg.match[1]
     msg.send "Nice job @#{user} on that new test."
-
-  robot.hear /\((.*?)\) (opened)(.*)(add)(.*)(test)/i, (msg) ->
-    user = msg.match[1]
-    msg.send "Nice job @#{user} on that new test."
     
   robot.hear /(bananatime)/i, (msg) ->
     msg.send "https://media.giphy.com/media/IB9foBA4PVkKA/giphy.gif"
