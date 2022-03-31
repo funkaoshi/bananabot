@@ -246,11 +246,6 @@ module.exports = (robot) ->
       msg.send "There is half a banana in the kitchen!"
 
 
-  # Positive Feedback!
-  robot.hear /(add)(.*)(test)/i, (msg) ->
-    user = msg.message.user.id
-    msg.send "Nice job <@#{user}> on that new test."
-
   robot.hear /(bananatime)/i, (msg) ->
     msg.send "https://media.giphy.com/media/IB9foBA4PVkKA/giphy.gif"
 
